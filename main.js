@@ -3,6 +3,40 @@ function main() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 
+  /*========================= CAPTURE MOUSE EVENTS ========================= */
+  let drag = false; // Is dragging the mouse ?
+  const AMORTIZATION = 0.95;
+  let x_prev, y_prev; // X & Y previous values
+  let dX = 0, dY = 0;
+  let THETA = 0, PHI = 0; // coef to rotation X & Y in radians
+  
+
+  const mouseDown = function(e) {
+    drag = true;
+    x_prev = e.pageX, y_prev = e.pageY;
+    e.preventDefault();
+    return false;
+  };
+
+  const mouseUp = function(e) {
+    drag = false;
+  };
+
+  const mouseMove = function(e) {
+    if(!drag) return false;
+    dX = (e.pageX - x_prev) * 2 * Math.PI / canvas.width;
+    dY = (e.pageY - y_prev) * 2 * Math.PI / canvas.height;
+    THETA += dX ;
+    PHI += dY ;
+    x_prev = e.pageX, y_prev = e.pageY;
+    e.preventDefault();
+  };
+
+  canvas.addEventListener("mousedown", mouseDown, false);
+  canvas.addEventListener("mouseup", mouseUp, false);
+  canvas.addEventListener("mouseout", mouseUp, false);
+  canvas.addEventListener("mousemove", mouseMove, false);
+
   /*========================= GET WEBGL CONTEXT ========================= */
   let gl;
   try {
@@ -151,9 +185,13 @@ function main() {
   let time_prev = 0;
   const animate = function (time) {
     let dt = time - time_prev;
-    LIBS.rotateZ(MOVEMATRIX, dt * 0.001);
-    LIBS.rotateY(MOVEMATRIX, dt * 0.002);
-    LIBS.rotateX(MOVEMATRIX, dt * 0.003);
+    if(!drag) {
+      dX *= AMORTIZATION, dY *= AMORTIZATION;
+      THETA += dX, PHI += dY;
+    }
+    LIBS.set_I4(MOVEMATRIX);
+    LIBS.rotateY(MOVEMATRIX, THETA);
+    LIBS.rotateX(MOVEMATRIX, PHI);
     time_prev = time;
 
     gl.viewport(0, 0, canvas.width, canvas.height);
