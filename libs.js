@@ -31,6 +31,10 @@ const LIBS = {
       m[12]=0, m[13]=0, m[14]=0, m[15]=1;
   },
 
+  set_position: function(m,x,y,z) {
+    m[12]=x, m[13]=y, m[14]=z;
+  },
+
   rotateX: function (m, angle) {
     var c = Math.cos(angle);
     var s = Math.sin(angle);
@@ -79,4 +83,9 @@ const LIBS = {
   translateZ: function (m, t) {
     m[14] += t;
   },
+
+  translateX: function(m, t){
+    m[12]+=t;
+  },
+
 };
