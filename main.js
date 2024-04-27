@@ -52,20 +52,21 @@ function main() {
   const shader_vertex_source ="\n\
   attribute vec3 position;\n\
   uniform mat4 Pmatrix, Vmatrix, Mmatrix;\n\
-  attribute vec3 color; // the color of the point\n\
-  varying vec3 vColor; // color which will be interpolated per pix\n\
+  attribute vec2 uv;\n\
+  varying vec2 vUv;\n\
   \n\
   void main(void) {\n\
   gl_Position = Pmatrix * Vmatrix * Mmatrix * vec4(position, 1.);\n\
-  vColor = color;\n\
+  vUv = uv;\n\
   }";
 
   const shader_fragment_source ="\n\
   precision mediump float;\n\
-  varying vec3 vColor;\n\
+  uniform sampler2D sampler;\n\
+  varying vec2 vUv;\n\
   \n\
   void main(void) {\n\
-  gl_FragColor = vec4(vColor, 1.);\n\
+  gl_FragColor = texture2D(sampler, vUv);\n\
   }";
 
   const compile_shader = function (source, type, typeString) {
@@ -94,46 +95,50 @@ function main() {
   const _Vmatrix = gl.getUniformLocation(SHADER_PROGRAM, "Vmatrix");
   const _Mmatrix = gl.getUniformLocation(SHADER_PROGRAM, "Mmatrix");
 
-  const _color = gl.getAttribLocation(SHADER_PROGRAM, "color");
+  // const _color = gl.getAttribLocation(SHADER_PROGRAM, "color");
+  const _sampler = gl.getUniformLocation(SHADER_PROGRAM, "sampler");
+  const _uv = gl.getAttribLocation(SHADER_PROGRAM, "uv");
   const _position = gl.getAttribLocation(SHADER_PROGRAM, "position");
 
-  gl.enableVertexAttribArray(_color);
+  // gl.enableVertexAttribArray(_color);
+  gl.enableVertexAttribArray(_uv);
   gl.enableVertexAttribArray(_position);
 
   gl.useProgram(SHADER_PROGRAM);
+  gl.uniform1i(_sampler, 0);
 
   /*========================= THE CUBE ========================= */
   // POINTS:
   const cube_vertex = [
-    -1, -1, -1,     1, 1, 0, // Back face with color : yellow
-    1, -1, -1,      1, 1, 0,
-    1, 1, -1,       1, 1, 0, 
-    -1, 1, -1,      1, 1, 0, 
+    -1, -1, -1,     0, 0, // Back face
+    1, -1, -1,      1, 0,
+    1, 1, -1,       1, 1, 
+    -1, 1, -1,      0, 1, 
 
-    -1, -1, 1,      0, 0, 1, //Front face with color : blue
-    1, -1, 1,       0, 0, 1,
-    1, 1, 1,        0, 0, 1,
-    -1, 1, 1,       0, 0, 1,
+    -1, -1, 1,      0, 0, //Front face
+    1, -1, 1,       1, 0,
+    1, 1, 1,        1, 1,
+    -1, 1, 1,       0, 1,
 
-    -1, -1, -1,     0, 1, 1, //Left face with color : cyan
-    -1, 1, -1,      0, 1, 1,
-    -1, 1, 1,       0, 1, 1,
-    -1, -1, 1,      0, 1, 1,
+    -1, -1, -1,     0, 0, //Left face 
+    -1, 1, -1,      1, 0,
+    -1, 1, 1,       1, 1,
+    -1, -1, 1,      0, 1,
 
-    1, -1, -1,      1, 0, 0, //Right face with color : red
-    1, 1, -1,       1, 0, 0,
-    1, 1, 1,        1, 0, 0,
-    1, -1, 1,       1, 0, 0,
+    1, -1, -1,      0, 0, //Right face 
+    1, 1, -1,       1, 0,
+    1, 1, 1,        1, 1,
+    1, -1, 1,       0, 1,
 
-    -1, -1, -1,     1, 0, 1, //Bottom face with color : purple
-    -1, -1, 1,      1, 0, 1,
-    1, -1, 1,       1, 0, 1,
-    1, -1, -1,      1, 0, 1,
+    -1, -1, -1,     0, 0, //Bottom face 
+    -1, -1, 1,      1, 0,
+    1, -1, 1,       1, 1,
+    1, -1, -1,      0, 1,
 
-    -1, 1, -1,      0, 1, 0, //Top face with color : green
-    -1, 1, 1,       0, 1, 0,
-    1, 1, 1,        0, 1, 0,
-    1, 1, -1,       0, 1, 0,
+    -1, 1, -1,      0, 0, //Top face 
+    -1, 1, 1,       1, 0,
+    1, 1, 1,        1, 1,
+    1, 1, -1,       0, 1,
   ];
 
   const CUBE_VERTEX = gl.createBuffer();
@@ -176,6 +181,39 @@ function main() {
 
   LIBS.translateZ(VIEWMATRIX, -6);
 
+   /*========================= TEXTURES ========================= */
+  const load_texture = function(image_URL){
+
+    const texture = gl.createTexture();
+
+    let image = new Image();
+
+    image.src = image_URL;
+    image.onload = function(e) {
+
+
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR);
+
+      gl.generateMipmap(gl.TEXTURE_2D);
+
+      gl.bindTexture(gl.TEXTURE_2D, null);
+
+    };
+
+    return texture;
+  };
+
+  const cube_texture = load_texture("/texture.png");
+
   /*========================= DRAWING ========================= */
   gl.enable(gl.DEPTH_TEST);
   gl.depthFunc(gl.LEQUAL);
@@ -199,9 +237,17 @@ function main() {
     gl.uniformMatrix4fv(_Pmatrix, false, PROJMATRIX);
     gl.uniformMatrix4fv(_Vmatrix, false, VIEWMATRIX);
     gl.uniformMatrix4fv(_Mmatrix, false, MOVEMATRIX);
+    
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, cube_texture);
+    
     gl.bindBuffer(gl.ARRAY_BUFFER, CUBE_VERTEX);
-    gl.vertexAttribPointer(_position, 3, gl.FLOAT, false, 4 * (3 + 3), 0);
-    gl.vertexAttribPointer(_color, 3, gl.FLOAT, false, 4 * (3 + 3), 3 * 4);
+
+    // gl.vertexAttribPointer(_position, 3, gl.FLOAT, false, 4 * (3 + 3), 0);
+    // gl.vertexAttribPointer(_color, 3, gl.FLOAT, false, 4 * (3 + 3), 3 * 4);
+    gl.vertexAttribPointer(_position, 3, gl.FLOAT, false, 4 * (3 + 2), 0);
+    gl.vertexAttribPointer(_uv, 2, gl.FLOAT, false, 4 * (3 + 2), 3 * 4);
+
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, CUBE_FACES);
     gl.drawElements(gl.TRIANGLES, 6*2*3, gl.UNSIGNED_SHORT, 0); // 6 faces * 2 triangles per face * 3 points per triangle
 
