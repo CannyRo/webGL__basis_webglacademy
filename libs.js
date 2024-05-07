@@ -1,4 +1,18 @@
 const LIBS = {
+  get_json: function(url, func) {
+    //create the request
+    let xmlHttp = new XMLHttpRequest();
+    xmlHttp.open("GET", url, true);
+    xmlHttp.onreadystatechange = function() {
+      if (xmlHttp.readyState == 4 && xmlHttp.status==200) {
+        //the file is loaded. Parse it as JSON and launch func
+        func(JSON.parse(xmlHttp.responseText));
+      }
+    };
+    //send the request
+    xmlHttp.send();
+  },
+
   degToRad: function (angle) {
     return (angle * Math.PI) / 180;
   },
@@ -26,9 +40,9 @@ const LIBS = {
 
   set_I4: function(m) {
     m[0]=1, m[1]=0, m[2]=0, m[3]=0,
-      m[4]=0, m[5]=1, m[6]=0, m[7]=0,
-      m[8]=0, m[9]=0, m[10]=1, m[11]=0,
-      m[12]=0, m[13]=0, m[14]=0, m[15]=1;
+    m[4]=0, m[5]=1, m[6]=0, m[7]=0,
+    m[8]=0, m[9]=0, m[10]=1, m[11]=0,
+    m[12]=0, m[13]=0, m[14]=0, m[15]=1;
   },
 
   rotateX: function (m, angle) {
@@ -79,4 +93,8 @@ const LIBS = {
   translateZ: function (m, t) {
     m[14] += t;
   },
+
+  translateY: function(m, t){
+    m[13]+=t;
+  }
 };

@@ -41,6 +41,7 @@ function main() {
   let gl;
   try {
     gl = canvas.getContext("webgl", { antialias: true });
+    var EXT = gl.getExtension("OES_element_index_uint");
   } catch (e) {
     alert("WebGL context cannot be initialized");
     return false;
@@ -94,84 +95,43 @@ function main() {
   const _Pmatrix = gl.getUniformLocation(SHADER_PROGRAM, "Pmatrix");
   const _Vmatrix = gl.getUniformLocation(SHADER_PROGRAM, "Vmatrix");
   const _Mmatrix = gl.getUniformLocation(SHADER_PROGRAM, "Mmatrix");
-
-  // const _color = gl.getAttribLocation(SHADER_PROGRAM, "color");
   const _sampler = gl.getUniformLocation(SHADER_PROGRAM, "sampler");
+
   const _uv = gl.getAttribLocation(SHADER_PROGRAM, "uv");
   const _position = gl.getAttribLocation(SHADER_PROGRAM, "position");
 
-  // gl.enableVertexAttribArray(_color);
   gl.enableVertexAttribArray(_uv);
   gl.enableVertexAttribArray(_position);
 
   gl.useProgram(SHADER_PROGRAM);
   gl.uniform1i(_sampler, 0);
 
-  /*========================= THE CUBE ========================= */
-  // POINTS:
-  const cube_vertex = [
-    -1, -1, -1,     0, 0, // Back face
-    1, -1, -1,      1, 0,
-    1, 1, -1,       1, 1, 
-    -1, 1, -1,      0, 1, 
+  /*========================= THE DRAGON ========================= */
 
-    -1, -1, 1,      0, 0, //Front face
-    1, -1, 1,       1, 0,
-    1, 1, 1,        1, 1,
-    -1, 1, 1,       0, 1,
+  let CUBE_VERTEX=false, CUBE_FACES=false, CUBE_NPOINTS=0;
 
-    -1, -1, -1,     0, 0, //Left face 
-    -1, 1, -1,      1, 0,
-    -1, 1, 1,       1, 1,
-    -1, -1, 1,      0, 1,
+  LIBS.get_json("/dragon.json", function(dragon){
+    // vertices:
+    CUBE_VERTEX = gl.createBuffer ();
+    gl.bindBuffer(gl.ARRAY_BUFFER, CUBE_VERTEX);
+    gl.bufferData(gl.ARRAY_BUFFER,
+                  new Float32Array(dragon.vertices),
+      gl.STATIC_DRAW);
 
-    1, -1, -1,      0, 0, //Right face 
-    1, 1, -1,       1, 0,
-    1, 1, 1,        1, 1,
-    1, -1, 1,       0, 1,
+    // faces:
+    CUBE_FACES = gl.createBuffer ();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, CUBE_FACES);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,
+                  new Uint32Array(dragon.indices),
+      gl.STATIC_DRAW);
 
-    -1, -1, -1,     0, 0, //Bottom face 
-    -1, -1, 1,      1, 0,
-    1, -1, 1,       1, 1,
-    1, -1, -1,      0, 1,
+    CUBE_NPOINTS = dragon.indices.length;
 
-    -1, 1, -1,      0, 0, //Top face 
-    -1, 1, 1,       1, 0,
-    1, 1, 1,        1, 1,
-    1, 1, -1,       0, 1,
-  ];
+    animate(0);
 
-  const CUBE_VERTEX = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, CUBE_VERTEX);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cube_vertex), gl.STATIC_DRAW);
+  });
 
-  // FACES:
-  const cube_faces = [
-    0, 1, 2, // 2 triangles for back face
-    0, 2, 3,
 
-    4, 5, 6, // front face
-    4, 6, 7, 
-
-    8, 9, 10, // left face
-    8, 10, 11,
-
-    12, 13, 14, // right face
-    12, 14, 15,
-
-    16, 17, 18, // bottom face
-    16, 18, 19, 
-
-    20, 21, 22, // top face
-    20, 22, 23
-];
-  const CUBE_FACES = gl.createBuffer();
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, CUBE_FACES);
-  gl.bufferData(
-    gl.ELEMENT_ARRAY_BUFFER,
-    new Uint16Array(cube_faces),
-    gl.STATIC_DRAW
-  );
 
   /*========================= MATRIX ========================= */
 
@@ -179,7 +139,8 @@ function main() {
   const MOVEMATRIX = LIBS.get_I4();
   const VIEWMATRIX = LIBS.get_I4();
 
-  LIBS.translateZ(VIEWMATRIX, -6);
+  LIBS.translateZ(VIEWMATRIX, -20);
+  LIBS.translateY(VIEWMATRIX, -4);
 
    /*========================= TEXTURES ========================= */
   const load_texture = function(image_URL){
@@ -190,29 +151,20 @@ function main() {
 
     image.src = image_URL;
     image.onload = function(e) {
-
-
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-
-
+      gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR);
-
       gl.generateMipmap(gl.TEXTURE_2D);
-
       gl.bindTexture(gl.TEXTURE_2D, null);
-
     };
 
     return texture;
   };
 
-  const cube_texture = load_texture("/texture.png");
+  // const cube_texture = load_texture("/texture.png");
+  const cube_texture = load_texture("/dragon.png");
 
   /*========================= DRAWING ========================= */
   gl.enable(gl.DEPTH_TEST);
@@ -242,14 +194,10 @@ function main() {
     gl.bindTexture(gl.TEXTURE_2D, cube_texture);
     
     gl.bindBuffer(gl.ARRAY_BUFFER, CUBE_VERTEX);
-
-    // gl.vertexAttribPointer(_position, 3, gl.FLOAT, false, 4 * (3 + 3), 0);
-    // gl.vertexAttribPointer(_color, 3, gl.FLOAT, false, 4 * (3 + 3), 3 * 4);
-    gl.vertexAttribPointer(_position, 3, gl.FLOAT, false, 4 * (3 + 2), 0);
-    gl.vertexAttribPointer(_uv, 2, gl.FLOAT, false, 4 * (3 + 2), 3 * 4);
-
+    gl.vertexAttribPointer(_position, 3, gl.FLOAT, false, 4 * (3 + 3 + 2), 0);
+    gl.vertexAttribPointer(_uv, 2, gl.FLOAT, false, 4 * (3 + 3 + 2), (3+3) * 4);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, CUBE_FACES);
-    gl.drawElements(gl.TRIANGLES, 6*2*3, gl.UNSIGNED_SHORT, 0); // 6 faces * 2 triangles per face * 3 points per triangle
+    gl.drawElements(gl.TRIANGLES, CUBE_NPOINTS, gl.UNSIGNED_INT, 0); // 6 faces * 2 triangles per face * 3 points per triangle
 
     gl.flush();
 
