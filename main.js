@@ -176,43 +176,53 @@ function main() {
   /*========================= MATRIX ========================= */
 
   const PROJMATRIX = LIBS.get_projection(40, canvas.width / canvas.height, 1, 100);
+  const PROJMATRIX_RTT = LIBS.get_projection(20, 1, 1, 100);
   const MOVEMATRIX = LIBS.get_I4();
   const VIEWMATRIX = LIBS.get_I4();
+  const MOVEMATRIXAUTO = LIBS.get_I4()
 
   LIBS.translateZ(VIEWMATRIX, -6);
 
    /*========================= TEXTURES ========================= */
   const load_texture = function(image_URL){
-
     const texture = gl.createTexture();
-
     let image = new Image();
-
     image.src = image_URL;
     image.onload = function(e) {
-
-
       gl.bindTexture(gl.TEXTURE_2D, texture);
-
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-
-
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR);
-
       gl.generateMipmap(gl.TEXTURE_2D);
-
       gl.bindTexture(gl.TEXTURE_2D, null);
-
     };
-
     return texture;
   };
 
   const cube_texture = load_texture("/texture.png");
+
+  /*========================= RENDER TO TEXTURE ========================= */
+  const fb = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+
+  const rb = gl.createRenderbuffer();
+  gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
+  gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16 , 512, 512);
+
+  const texture_rtt = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture_rtt);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 512, 512, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture_rtt, 0);
+
+  gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, rb);
+
+  gl.bindTexture(gl.TEXTURE_2D, null);
+  gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
   /*========================= DRAWING ========================= */
   gl.enable(gl.DEPTH_TEST);
@@ -227,19 +237,54 @@ function main() {
       dX *= AMORTIZATION, dY *= AMORTIZATION;
       THETA += dX, PHI += dY;
     }
+
+    //===== DRAWING ON THE TEXTURE =====
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.viewport(0, 0, 512, 512);
+    gl.clearColor(0.1, 0.2, 0.4, 1.0);
+
+    LIBS.rotateY(MOVEMATRIXAUTO, dt*0.0001);
+    LIBS.rotateX(MOVEMATRIXAUTO, dt*0.0002);
+    LIBS.rotateZ(MOVEMATRIXAUTO, dt*0.0003);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    // draw the rotating cube:
+    gl.uniformMatrix4fv(_Pmatrix, false, PROJMATRIX_RTT);
+    gl.uniformMatrix4fv(_Vmatrix, false, VIEWMATRIX);
+    gl.uniformMatrix4fv(_Mmatrix, false, MOVEMATRIXAUTO);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, cube_texture);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, CUBE_VERTEX);
+    gl.vertexAttribPointer(_position, 3, gl.FLOAT, false, 4*(3+2), 0);
+    gl.vertexAttribPointer(_uv, 2, gl.FLOAT, false, 4*(3+2), 3*4);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, CUBE_FACES);
+    gl.drawElements(gl.TRIANGLES, 6*2*3, gl.UNSIGNED_SHORT, 0);
+
+    gl.flush();
+    gl.bindTexture(gl.TEXTURE_2D, null);
+
+    //===== DRAWING THE MAIN 3D SCENE =====
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
     LIBS.set_I4(MOVEMATRIX);
     LIBS.rotateY(MOVEMATRIX, THETA);
     LIBS.rotateX(MOVEMATRIX, PHI);
     time_prev = time;
 
     gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.uniformMatrix4fv(_Pmatrix, false, PROJMATRIX);
     gl.uniformMatrix4fv(_Vmatrix, false, VIEWMATRIX);
     gl.uniformMatrix4fv(_Mmatrix, false, MOVEMATRIX);
     
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, cube_texture);
+    // gl.activeTexture(gl.TEXTURE0);
+    // gl.bindTexture(gl.TEXTURE_2D, cube_texture);
+    gl.bindTexture(gl.TEXTURE_2D, texture_rtt);
     
     gl.bindBuffer(gl.ARRAY_BUFFER, CUBE_VERTEX);
 
