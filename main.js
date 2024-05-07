@@ -52,12 +52,17 @@ function main() {
 
   const shader_vertex_source ="\n\
   attribute vec3 position;\n\
-  uniform mat4 Pmatrix, Vmatrix, Mmatrix;\n\
   attribute vec2 uv;\n\
+  attribute vec3 normal;\n\
+  uniform mat4 Pmatrix, Vmatrix, Mmatrix;\n\
   varying vec2 vUv;\n\
+  varying vec3 vNormal;\n\
+  varying vec3 vView;\n\
   \n\
   void main(void) {\n\
   gl_Position = Pmatrix * Vmatrix * Mmatrix * vec4(position, 1.);\n\
+  vNormal = vec3(Mmatrix*vec4(normal, 0.));\n\
+  vView = vec3(Vmatrix * Mmatrix * vec4(position, 1.));\n\
   vUv = uv;\n\
   }";
 
@@ -65,9 +70,30 @@ function main() {
   precision mediump float;\n\
   uniform sampler2D sampler;\n\
   varying vec2 vUv;\n\
+  varying vec3 vNormal;\n\
+  varying vec3 vView;\n\
+  const vec3 source_ambient_color = vec3(1.,1.,1.);\n\
+  const vec3 source_diffuse_color = vec3(1.,2.,4.);\n\
+  const vec3 source_specular_color = vec3(1.,1.,1.);\n\
+  const vec3 source_direction = vec3(0.,0.,1.);\n\
+  \n\
+  const vec3 mat_ambient_color = vec3(0.3,0.3,0.3);\n\
+  const vec3 mat_diffuse_color = vec3(1.,1.,1.);\n\
+  const vec3 mat_specular_color = vec3(1.,1.,1.);\n\
+  const float mat_shininess = 10.;\n\
+  \n\
   \n\
   void main(void) {\n\
-  gl_FragColor = texture2D(sampler, vUv);\n\
+  vec3 color = vec3(texture2D(sampler, vUv));\n\
+  vec3 I_ambient = source_ambient_color * mat_ambient_color;\n\
+  vec3 I_diffuse = source_diffuse_color * mat_diffuse_color * max(0., dot(vNormal, source_direction));\n\
+  vec3 V = normalize(vView);\n\
+  vec3 R = reflect(source_direction, vNormal);\n\
+  \n\
+  \n\
+  vec3 I_specular = source_specular_color * mat_specular_color * pow(max(dot(R,V), 0.), mat_shininess);\n\
+  vec3 I = I_ambient + I_diffuse;\n\
+  gl_FragColor = vec4(I*color, 1.);\n\
   }";
 
   const compile_shader = function (source, type, typeString) {
@@ -99,9 +125,11 @@ function main() {
 
   const _uv = gl.getAttribLocation(SHADER_PROGRAM, "uv");
   const _position = gl.getAttribLocation(SHADER_PROGRAM, "position");
+  const _normal = gl.getAttribLocation(SHADER_PROGRAM, "normal");
 
   gl.enableVertexAttribArray(_uv);
   gl.enableVertexAttribArray(_position);
+  gl.enableVertexAttribArray(_normal);
 
   gl.useProgram(SHADER_PROGRAM);
   gl.uniform1i(_sampler, 0);
@@ -195,6 +223,7 @@ function main() {
     
     gl.bindBuffer(gl.ARRAY_BUFFER, CUBE_VERTEX);
     gl.vertexAttribPointer(_position, 3, gl.FLOAT, false, 4 * (3 + 3 + 2), 0);
+    gl.vertexAttribPointer(_normal, 3, gl.FLOAT, false, 4 * (3 + 3 + 2), 3*4);
     gl.vertexAttribPointer(_uv, 2, gl.FLOAT, false, 4 * (3 + 3 + 2), (3+3) * 4);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, CUBE_FACES);
     gl.drawElements(gl.TRIANGLES, CUBE_NPOINTS, gl.UNSIGNED_INT, 0); // 6 faces * 2 triangles per face * 3 points per triangle
